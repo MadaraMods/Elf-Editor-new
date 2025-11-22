@@ -1,42 +1,40 @@
-name: Debug APK Build
+name: Build Legacy Android Project
 on: [push, workflow_dispatch]
 
 jobs:
-  debug-build:
+  build:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: List project files
-      run: |
-        echo "=== PROJE DOSYALARI ==="
-        ls -la
-        echo "=== GRADLE DOSYASI VAR MI? ==="
-        ls -la | grep gradle
-        echo "=== ANDROID DİZİNİ ==="
-        find . -name "android" -type d
-      
-    - name: Analyze project structure
-      run: |
-        echo "=== BUILD.GRADLE İÇERİĞİ ==="
-        if [ -f "app/build.gradle" ]; then
-          cat app/build.gradle | head -20
-        elif [ -f "build.gradle" ]; then
-          cat build.gradle | head -20
-        else
-          echo "BUILD.GRADLE BULUNAMADI!"
-        fi
-        
-    - name: Try Java 17 with full log
+    - name: Setup Java 8 (Eski Projeler İçin)
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '8'
         distribution: 'temurin'
-        
-    - name: Build with debug info
+    
+    - name: Install Gradle
       run: |
+        # Gradle kur
+        wget https://services.gradle.org/distributions/gradle-4.10.3-bin.zip
+        unzip gradle-4.10.3-bin.zip
+        export PATH=$PWD/gradle-4.10.3/bin:$PATH
+        echo "GRADLE_HOME=$PWD/gradle-4.10.3" >> $GITHUB_ENV
+        echo "$PWD/gradle-4.10.3/bin" >> $GITHUB_PATH
+        
+    - name: Create Gradle Wrapper
+      run: |
+        # Gradle wrapper oluştur
+        gradle wrapper --gradle-version 4.10.3
+        
+        # Wrapper'ı çalıştırılabilir yap
         chmod +x ./gradlew
-        ./gradlew tasks --all || echo "Gradle tasks failed"
-        ./gradlew build --stacktrace --info || echo "Build failed"
+        
+    - name: Check Wrapper
+      run: |
+        echo "=== OLUŞAN DOSYALAR ==="
+        ls -la
+        echo "=== GRADLEWRAPPER DİZİNİ ==="
+        ls -la gradle/wrapper/
