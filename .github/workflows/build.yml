@@ -1,36 +1,40 @@
-name: Build with Docker
+name: Simple Old Android Build
 on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
-    container:
-      image: openjdk:8-jdk
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install Android SDK in Container
+    - name: Setup Java 7 (DAHA DA ESKİ!)
+      uses: actions/setup-java@v4
+      with:
+        java-version: '7'
+        distribution: 'temurin'
+
+    - name: Use Preconfigured Android Environment
       run: |
-        apt-get update
-        apt-get install -y wget unzip
-        
-        # Android SDK
-        wget https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip
-        unzip sdk-tools-linux-4333796.zip -d android-sdk
-        export ANDROID_HOME=$PWD/android-sdk
+        # Android SDK yolu ayarla
+        export ANDROID_HOME=/usr/local/lib/android/sdk
         echo "sdk.dir=$ANDROID_HOME" > local.properties
         
-        # Licenses
-        mkdir -p $ANDROID_HOME/licenses
-        echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55" > $ANDROID_HOME/licenses/android-sdk-license
-        echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license
-        
-    - name: Build with Fixed Environment
+    - name: Install Compatible Gradle
       run: |
-        # Gradle 2.14.1 ile build
-        wget https://services.gradle.org/distributions/gradle-2.14.1-bin.zip
-        unzip gradle-2.14.1-bin.zip
-        ./gradle-2.14.1/bin/gradle assembleDebug --stacktrace
+        # Gradle 3.3 kur - plugin 1.+ ile uyumlu
+        wget https://services.gradle.org/distributions/gradle-3.3-bin.zip
+        unzip gradle-3.3-bin.zip
+        export PATH=$PWD/gradle-3.3/bin:$PATH
+        
+    - name: Update Build Gradle
+      run: |
+        # Plugin versiyonunu sabitle
+        sed -i 's/classpath .com.android.tools.build:gradle:1.+./classpath "com.android.tools.build:gradle:1.5.0"/' build.gradle
+        
+    - name: Build APK
+      run: |
+        gradle wrapper --gradle-version 3.3
+        chmod +x ./gradlew
+        ./gradlew assembleDebug --stacktrace
