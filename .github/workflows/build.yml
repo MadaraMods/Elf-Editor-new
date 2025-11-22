@@ -1,79 +1,36 @@
-name: Build Legacy Android Project
+name: Build with Docker
 on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    container:
+      image: openjdk:8-jdk
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Java 8 (Eski Projeler İçin)
-      uses: actions/setup-java@v4
-      with:
-        java-version: '8'
-        distribution: 'temurin'
-
-    - name: Install Gradle
+    - name: Install Android SDK in Container
       run: |
-        # Gradle kur
-        wget https://services.gradle.org/distributions/gradle-4.10.3-bin.zip
-        unzip gradle-4.10.3-bin.zip
-        export PATH=$PWD/gradle-4.10.3/bin:$PATH
-        echo "GRADLE_HOME=$PWD/gradle-4.10.3" >> $GITHUB_ENV
-        echo "$PWD/gradle-4.10.3/bin" >> $GITHUB_PATH
+        apt-get update
+        apt-get install -y wget unzip
         
-    - name: Create Gradle Wrapper
-      run: |
-        # Gradle wrapper oluştur
-        gradle wrapper --gradle-version 4.10.3
-        
-        # Wrapper'ı çalıştırılabilir yap
-        chmod +x ./gradlew
-        
-    - name: Setup Android SDK
-      run: |
-        # Android SDK kurulumu
-        wget https://dl.google.com/android/repository/commandlinetools-linux-8092744_latest.zip
-        unzip commandlinetools-linux-8092744_latest.zip
-        mkdir -p android-sdk/cmdline-tools/latest
-        mv cmdline-tools/* android-sdk/cmdline-tools/latest/
+        # Android SDK
+        wget https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip
+        unzip sdk-tools-linux-4333796.zip -d android-sdk
         export ANDROID_HOME=$PWD/android-sdk
-        echo "ANDROID_HOME=$PWD/android-sdk" >> $GITHUB_ENV
+        echo "sdk.dir=$ANDROID_HOME" > local.properties
         
-    - name: Accept Android Licenses
+        # Licenses
+        mkdir -p $ANDROID_HOME/licenses
+        echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55" > $ANDROID_HOME/licenses/android-sdk-license
+        echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license
+        
+    - name: Build with Fixed Environment
       run: |
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-        
-    - name: Install Android Build Tools
-      run: |
-        # Eski Android versiyonları için build tools
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;28.0.3" "platforms;android-28" "platform-tools"
-        
-    - name: Build APK
-      run: |
-        # APK derle
-        ./gradlew clean
-        ./gradlew assembleDebug --stacktrace --no-daemon
-        
-    - name: Find and Upload APK
-      run: |
-        # APK dosyasını bul
-        echo "=== ARANAN APK DOSYALARI ==="
-        find . -name "*.apk" -type f | head -10
-        
-        # APK'ları listele
-        for apk in $(find . -name "*.apk" -type f); do
-          echo "BULUNDU: $apk"
-          ls -la "$apk"
-        done
-        
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: legacy-app-apk
-        path: |
-          **/build/outputs/apk/**/*.apk
-          **/build/outputs/**/*.apk
-        retention-days: 30
+        # Gradle 2.14.1 ile build
+        wget https://services.gradle.org/distributions/gradle-2.14.1-bin.zip
+        unzip gradle-2.14.1-bin.zip
+        ./gradle-2.14.1/bin/gradle assembleDebug --stacktrace
