@@ -1,23 +1,42 @@
-name: Smart APK Build
-on: [push]
+name: Debug APK Build
+on: [push, workflow_dispatch]
 
 jobs:
-  detect-and-build:
+  debug-build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        java: [8, 11, 17]  # Sırayla dener
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-java@v4
-      with:
-        java-version: ${{ matrix.java }}
-    - run: chmod +x ./gradlew
-    - run: ./gradlew assembleDebug || echo "Java ${{ matrix.java }} failed, trying next..."
     
-    - name: Upload on success
-      if: success()
-      uses: actions/upload-artifact@v4
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: List project files
+      run: |
+        echo "=== PROJE DOSYALARI ==="
+        ls -la
+        echo "=== GRADLE DOSYASI VAR MI? ==="
+        ls -la | grep gradle
+        echo "=== ANDROID DİZİNİ ==="
+        find . -name "android" -type d
+      
+    - name: Analyze project structure
+      run: |
+        echo "=== BUILD.GRADLE İÇERİĞİ ==="
+        if [ -f "app/build.gradle" ]; then
+          cat app/build.gradle | head -20
+        elif [ -f "build.gradle" ]; then
+          cat build.gradle | head -20
+        else
+          echo "BUILD.GRADLE BULUNAMADI!"
+        fi
+        
+    - name: Try Java 17 with full log
+      uses: actions/setup-java@v4
       with:
-        name: app-apk-java${{ matrix.java }}
-        path: app/build/outputs/apk/debug/
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Build with debug info
+      run: |
+        chmod +x ./gradlew
+        ./gradlew tasks --all || echo "Gradle tasks failed"
+        ./gradlew build --stacktrace --info || echo "Build failed"
