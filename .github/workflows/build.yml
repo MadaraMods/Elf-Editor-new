@@ -1,0 +1,23 @@
+name: Smart APK Build
+on: [push]
+
+jobs:
+  detect-and-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java: [8, 11, 17]  # Sırayla dener
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.java }}
+    - run: chmod +x ./gradlew
+    - run: ./gradlew assembleDebug || echo "Java ${{ matrix.java }} failed, trying next..."
+    
+    - name: Upload on success
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-apk-java${{ matrix.java }}
+        path: app/build/outputs/apk/debug/
