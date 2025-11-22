@@ -1,4 +1,4 @@
-name: Simple Old Android Build
+name: Build Very Old Android Project
 on: [push, workflow_dispatch]
 
 jobs:
@@ -9,32 +9,62 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Java 7 (DAHA DA ESKİ!)
+    - name: Setup Java 8
       uses: actions/setup-java@v4
       with:
-        java-version: '7'
+        java-version: '8'
         distribution: 'temurin'
 
-    - name: Use Preconfigured Android Environment
+    - name: Install Old Android SDK
       run: |
-        # Android SDK yolu ayarla
-        export ANDROID_HOME=/usr/local/lib/android/sdk
-        echo "sdk.dir=$ANDROID_HOME" > local.properties
+        # Eski Android SDK kur
+        mkdir -p android-sdk
+        cd android-sdk
         
-    - name: Install Compatible Gradle
-      run: |
-        # Gradle 3.3 kur - plugin 1.+ ile uyumlu
-        wget https://services.gradle.org/distributions/gradle-3.3-bin.zip
-        unzip gradle-3.3-bin.zip
-        export PATH=$PWD/gradle-3.3/bin:$PATH
+        # Build Tools 28.0.3 (Android 9 Pie için)
+        wget https://dl.google.com/android/repository/build-tools_r28.0.3-linux.zip
+        unzip build-tools_r28.0.3-linux.zip -d build-tools/28.0.3/
         
-    - name: Update Build Gradle
+        # Platform 28
+        wget https://dl.google.com/android/repository/platform-28_r06.zip
+        unzip platform-28_r06.zip -d platforms/android-28/
+        
+        # Platform tools
+        wget https://dl.google.com/android/repository/platform-tools_r28.0.1-linux.zip
+        unzip platform-tools_r28.0.1-linux.zip
+        
+        export ANDROID_HOME=$PWD
+        echo "ANDROID_HOME=$PWD" >> $GITHUB_ENV
+        echo "$PWD/build-tools/28.0.3:$PWD/platform-tools" >> $GITHUB_PATH
+        
+    - name: Install Correct Gradle Version
       run: |
-        # Plugin versiyonunu sabitle
+        # Gradle 2.14.1 kur (Android plugin 1.+ için uyumlu)
+        wget https://services.gradle.org/distributions/gradle-2.14.1-bin.zip
+        unzip gradle-2.14.1-bin.zip
+        export PATH=$PWD/gradle-2.14.1/bin:$PATH
+        echo "GRADLE_HOME=$PWD/gradle-2.14.1" >> $GITHUB_ENV
+        
+    - name: Fix Build Files
+      run: |
+        # build.gradle'daki eski plugin versiyonunu düzelt
         sed -i 's/classpath .com.android.tools.build:gradle:1.+./classpath "com.android.tools.build:gradle:1.5.0"/' build.gradle
         
-    - name: Build APK
+        # local.properties dosyası oluştur (Android SDK yolu için)
+        echo "sdk.dir=$ANDROID_HOME" > local.properties
+        echo "ndk.dir=$ANDROID_HOME/ndk-bundle" >> local.properties
+        
+    - name: Create Gradle Wrapper
       run: |
-        gradle wrapper --gradle-version 3.3
+        # Bu eski gradle ile wrapper oluştur
+        gradle wrapper --gradle-version 2.14.1
         chmod +x ./gradlew
-        ./gradlew assembleDebug --stacktrace
+        
+    - name: Build with Old Setup
+      run: |
+        # Eski Android toolchain ile build et
+        export ANDROID_BUILD_TOOLS=$ANDROID_HOME/build-tools/28.0.3
+        export ANDROID_PLATFORM=$ANDROID_HOME/platforms/android-28
+        
+        ./gradlew clean
+        ./gradlew assembleDebug --stacktrace --no-daemon --info
